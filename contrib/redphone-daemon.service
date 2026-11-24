@@ -1,0 +1,13 @@
+[Unit]
+Description=Red Phone USB-C handset & browser voice daemon
+After=graphical-session.target pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStart=%h/Documents/redphone/daemon.py
+Restart=always
+RestartSec=2
+KillMode=process
+
+[Install]
+WantedBy=default.target

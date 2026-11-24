@@ -1,0 +1,18 @@
+# Local Python virtual environment & bytecode
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Large binary weights, shared libs & downloaded voices (~1.2 GB)
+models/
+
+# Downloaded YouTube audio clips (see README for yt-dlp commands)
+assets/dialtone.wav
+assets/ringtone.wav
+assets/*.webm
+assets/*.mp3
+
+# Runtime logs / temporary files
+*.log
+*.tmp

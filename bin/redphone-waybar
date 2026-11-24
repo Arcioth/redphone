@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Waybar JSON chip for the USB-C Red Phone (auto-hides when unplugged)."""
+import glob
+import json
+import os
+import urllib.request
+
+USB_VID = "001f"
+USB_PID = "0b21"
+API = "http://127.0.0.1:47621/api/state"
+
+
+def is_plugged() -> bool:
+    for vpath in glob.glob("/sys/bus/usb/devices/*/idVendor"):
+        try:
+            if open(vpath).read().strip().lower() != USB_VID:
+                continue
+            ppath = vpath.replace("idVendor", "idProduct")
+            if open(ppath).read().strip().lower() == USB_PID:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def main() -> None:
+    if not is_plugged():
+        print(json.dumps({"text": "", "alt": "none", "tooltip": "", "class": "empty"}))
+        return
+
+    st = None
+    try:
+        with urllib.request.urlopen(API, timeout=0.45) as resp:
+            st = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        pass
+
+    if not st:
+        mode = "call"
+        try:
+            mode = open(os.path.expanduser("~/.local/state/redphone/mode")).read().strip() or "call"
+        except OSError:
+            pass
+        lbl = "RCV" if mode == "receive" else "CALL"
+        print(json.dumps({
+            "text": f"TEL: {lbl}",
+            "class": f"redphone-{mode}",
+            "tooltip": f"Red Phone ({lbl}) — click to switch CALL / RCV",
+        }))
+        return
+
+    mode = st.get("mode", "call")
+    state = st.get("state", "idle")
+    prov = st.get("provider_info", {}).get("label", st.get("provider", "LOCAL").upper())
+    secs = int(st.get("call_seconds") or 0)
+    rem = st.get("armed_remaining")
+    delay = st.get("rcv_delay", "random")
+    mode_lbl = "RCV" if mode == "receive" else "CALL"
+
+    if state == "ringing":
+        text = "TEL: RING!"
+        cls = "redphone-ringing"
+    elif state == "dialing":
+        text = "TEL: DIAL"
+        cls = "redphone-dialing"
+    elif state == "connecting":
+        text = "TEL: CONN"
+        cls = "redphone-dialing"
+    elif state == "connected":
+        text = f"TEL: {secs // 60:02d}:{secs % 60:02d}"
+        cls = "redphone-live"
+    elif state == "auth_required":
+        text = "TEL: LOGIN"
+        cls = "redphone-warn"
+    elif state == "armed":
+        text = f"TEL: RCV {rem}s" if rem is not None else "TEL: RCV*"
+        cls = "redphone-armed"
+    else:
+        text = f"TEL: {mode_lbl}"
+        cls = f"redphone-{mode}"
+
+    delay_txt = "random (6-56s)" if delay == "random" else f"{delay}s"
+    tip = (
+        f"Red Phone · {mode_lbl} · {prov}\n"
+        f"State: {st.get('detail') or state}\n"
+        f"Receive Timer: {delay_txt}\n"
+        f"Left-click: switch CALL / RCV\n"
+        f"Right-click: open phone popup\n"
+        f"Middle-click / Scroll: cycle AI (LOCAL / EVIL TWIN / CHATGPT / GROK)"
+    )
+    print(json.dumps({"text": text, "class": cls, "tooltip": tip}))
+
+
+if __name__ == "__main__":
+    main()

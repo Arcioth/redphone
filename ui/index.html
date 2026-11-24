@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RED PHONE</title>
+<style>
+  :root {
+    --bg-deep: #0b0709;
+    --bg-card: #1b1015;
+    --crimson: #ff2a42;
+    --crimson-soft: rgba(255, 42, 66, 0.22);
+    --violet: #b64cff;
+    --violet-soft: rgba(182, 76, 255, 0.22);
+    --emerald: #26e699;
+    --amber: #ffbe3b;
+    --ink: #f8eaec;
+    --muted: #9b7a81;
+    --line: rgba(255, 76, 98, 0.24);
+  }
+
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background:
+      radial-gradient(circle at 50% 22%, rgba(255, 42, 66, 0.22), transparent 56%),
+      radial-gradient(circle at 82% 92%, rgba(160, 14, 34, 0.18), transparent 52%),
+      var(--bg-deep);
+    color: var(--ink);
+    font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+    overflow: hidden;
+  }
+
+  .deck {
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    display: grid;
+    grid-template-rows: auto 1fr auto auto auto;
+    gap: 10px;
+    border: 1px solid var(--line);
+    position: relative;
+  }
+
+  .deck[data-provider="eviltwin"] {
+    background:
+      radial-gradient(circle at 50% 22%, rgba(182, 76, 255, 0.22), transparent 58%),
+      radial-gradient(circle at 20% 88%, rgba(255, 42, 66, 0.18), transparent 52%);
+  }
+
+  .deck::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.016) 0px,
+      rgba(255, 255, 255, 0.016) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+  }
+
+  .led {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--crimson);
+    box-shadow: 0 0 10px var(--crimson);
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .deck[data-state="connected"] .led { background: var(--emerald); box-shadow: 0 0 12px var(--emerald); }
+  .deck[data-state="armed"] .led,
+  .deck[data-state="auth_required"] .led { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
+  .deck[data-state="ringing"] .led,
+  .deck[data-state="dialing"] .led { animation: ledBlink 0.55s infinite alternate; }
+
+  .mode-switch {
+    display: inline-flex;
+    background: rgba(0, 0, 0, 0.48);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 3px;
+  }
+
+  .mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    padding: 5px 11px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .mode-btn:hover { color: var(--ink); }
+  .mode-btn.active {
+    background: var(--crimson);
+    color: #fff;
+    box-shadow: 0 0 14px rgba(255, 42, 66, 0.45);
+  }
+
+  /* Center handset */
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 0;
+  }
+
+  .ring-rig {
+    width: 148px;
+    height: 148px;
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+
+  .wave {
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 42, 66, 0.48);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .deck[data-provider="eviltwin"] .wave { border-color: rgba(182, 76, 255, 0.55); }
+  .deck[data-state="ringing"] .wave,
+  .deck[data-state="dialing"] .wave,
+  .deck[data-state="connecting"] .wave {
+    animation: ripple 1.8s cubic-bezier(0.18, 0.65, 0.3, 1) infinite;
+  }
+  .deck[data-state="ringing"] .wave:nth-child(2),
+  .deck[data-state="dialing"] .wave:nth-child(2) { animation-delay: 0.6s; }
+  .deck[data-state="ringing"] .wave:nth-child(3),
+  .deck[data-state="dialing"] .wave:nth-child(3) { animation-delay: 1.2s; }
+  .deck[data-state="connected"] .wave {
+    border-color: rgba(38, 230, 153, 0.42);
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+
+  .medallion {
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #ff475c 0%, #c80e28 52%, #590511 100%);
+    border: 2px solid rgba(255, 150, 162, 0.45);
+    box-shadow:
+      0 0 34px rgba(255, 42, 66, 0.38),
+      inset 0 4px 12px rgba(255, 255, 255, 0.24),
+      inset 0 -10px 18px rgba(35, 0, 8, 0.7);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 0.16s ease, box-shadow 0.22s ease, background 0.25s ease;
+  }
+  .medallion:active { transform: scale(0.95); }
+
+  .deck[data-provider="eviltwin"] .medallion {
+    background: radial-gradient(circle at 32% 28%, #cc5eff 0%, #7d13b8 54%, #2d0447 100%);
+    border-color: rgba(226, 173, 255, 0.55);
+    box-shadow: 0 0 36px rgba(182, 76, 255, 0.42), inset 0 4px 12px rgba(255,255,255,0.22);
+  }
+  .deck[data-state="connected"] .medallion {
+    background: radial-gradient(circle at 32% 28%, #3af2aa 0%, #109e65 55%, #053e27 100%);
+    border-color: rgba(154, 255, 214, 0.55);
+    box-shadow: 0 0 38px rgba(38, 230, 153, 0.42), inset 0 4px 12px rgba(255,255,255,0.22);
+  }
+
+  .handset-svg {
+    width: 56px;
+    height: 56px;
+    fill: #fff4f5;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+  }
+  .deck[data-state="ringing"] .handset-svg { animation: phoneShake 0.42s ease-in-out infinite; }
+  .deck[data-state="dialing"] .handset-svg { animation: phonePulse 1.5s ease-in-out infinite; }
+
+  .status-block {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .state-title {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .deck[data-state="ringing"] .state-title { color: #ff5b6f; }
+  .deck[data-state="connected"] .state-title { color: var(--emerald); }
+  .deck[data-state="auth_required"] .state-title { color: var(--amber); }
+
+  .timer {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    color: var(--emerald);
+    min-height: 18px;
+  }
+  .deck[data-state="armed"] .timer { color: var(--amber); }
+
+  .state-detail {
+    font-size: 11.5px;
+    color: var(--muted);
+    max-width: 470px;
+    line-height: 1.35;
+  }
+
+  .hook-pill {
+    font-size: 10px;
+    letter-spacing: 0.11em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+  }
+  .hook-pill.on-hook {
+    border-color: rgba(255, 190, 59, 0.45);
+    color: var(--amber);
+  }
+
+  /* Context utility strip (RCV Timer & Evil Twin Clone) */
+  .util-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .util-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    font-size: 10.5px;
+  }
+  .util-bar.hidden { display: none; }
+  .util-label {
+    color: var(--muted);
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    white-space: nowrap;
+  }
+  .chips {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+  }
+  .chip {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 7px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--line); }
+  .chip.active {
+    background: rgba(255, 190, 59, 0.22);
+    border-color: var(--amber);
+    color: #fff3cf;
+  }
+  .chip.violet {
+    background: var(--violet-soft);
+    border-color: var(--violet);
+    color: #f3dcff;
+  }
+  .delay-input {
+    width: 54px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 5px;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 6px;
+    text-align: center;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .delay-input:focus {
+    outline: none;
+    border-color: var(--amber);
+  }
+
+  /* 2x2 Provider grid */
+  .providers {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 7px;
+  }
+
+  .prov-btn {
+    background: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    padding: 9px 4px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .prov-btn:hover { border-color: var(--line); color: var(--ink); }
+  .prov-btn.active {
+    background: var(--crimson-soft);
+    border-color: var(--crimson);
+    color: #fff;
+  }
+  .prov-btn[data-prov="eviltwin"].active {
+    background: var(--violet-soft);
+    border-color: var(--violet);
+    color: #f4dfff;
+  }
+
+  /* Primary actions */
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .act-btn {
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 12px 10px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.12s ease, filter 0.15s ease;
+  }
+  .act-btn:active { transform: scale(0.98); }
+  .btn-go {
+    background: linear-gradient(135deg, #1fcb84, #0f8a57);
+    color: #041b11;
+    box-shadow: 0 6px 20px rgba(31, 203, 132, 0.25);
+  }
+  .btn-stop {
+    background: linear-gradient(135deg, #ff354c, #b51026);
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(255, 42, 66, 0.28);
+  }
+  .btn-sub {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: var(--ink);
+  }
+  .btn-sub:hover { background: rgba(255, 255, 255, 0.12); }
+  .btn-amber {
+    background: linear-gradient(135deg, #ffbe3b, #c98108);
+    color: #1f1300;
+  }
+  .btn-violet {
+    background: linear-gradient(135deg, #b64cff, #6f19b8);
+    color: #fff;
+  }
+
+  @keyframes ledBlink {
+    from { opacity: 0.35; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1.15); }
+  }
+  @keyframes ripple {
+    0% { transform: scale(0.76); opacity: 0.85; }
+    100% { transform: scale(1.52); opacity: 0; }
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(0.96); opacity: 0.45; }
+    50% { transform: scale(1.2); opacity: 0.15; }
+  }
+  @keyframes phoneShake {
+    0%, 100% { transform: rotate(0deg); }
+    15% { transform: rotate(-14deg) translateX(-2px); }
+    30% { transform: rotate(14deg) translateX(2px); }
+    45% { transform: rotate(-12deg); }
+    60% { transform: rotate(10deg); }
+    75% { transform: rotate(-6deg); }
+  }
+  @keyframes phonePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.07); }
+  }
+</style>
+</head>
+<body>
+<main class="deck" id="deck" data-state="idle" data-provider="local">
+  <header class="topbar">
+    <div class="brand">
+      <span class="led"></span>
+      <span>RED PHONE</span>
+    </div>
+    <div class="mode-switch" role="group" aria-label="Call or Receive Mode">
+      <button class="mode-btn" id="modeCall" data-mode="call">CALL</button>
+      <button class="mode-btn" id="modeReceive" data-mode="receive">RCV</button>
+    </div>
+  </header>
+
+  <section class="stage">
+    <div class="ring-rig">
+      <div class="wave"></div>
+      <div class="wave"></div>
+      <div class="wave"></div>
+      <button class="medallion" id="medallion" title="Primary handset action">
+        <svg class="handset-svg" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1.02l-2.2 2.2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="status-block">
+      <div class="state-title" id="stateTitle">STANDBY</div>
+      <div class="timer" id="timer"></div>
+      <div class="state-detail" id="stateDetail">Connecting to daemon...</div>
+      <div class="hook-pill" id="hookPill">CRADLE: OFF HOOK</div>
+    </div>
+  </section>
+
+  <section class="util-stack">
+    <div class="util-bar hidden" id="timerBar">
+      <span class="util-label">CALL TIME</span>
+      <div class="chips">
+        <button class="chip" data-delay="random">RAND</button>
+        <button class="chip" data-delay="5">5s</button>
+        <button class="chip" data-delay="15">15s</button>
+        <button class="chip" data-delay="30">30s</button>
+        <button class="chip" data-delay="60">60s</button>
+        <input class="delay-input" id="customDelay" type="number" min="1" max="3600" placeholder="sec" />
+        <button class="chip" id="setDelayBtn">SET</button>
+      </div>
+    </div>
+
+    <div class="util-bar hidden" id="langBar">
+      <span class="util-label">LANGUAGE</span>
+      <div class="chips">
+        <button class="chip" data-lang="tr">TR</button>
+        <button class="chip" data-lang="auto">AUTO</button>
+        <button class="chip" data-lang="en">EN</button>
+      </div>
+    </div>
+
+    <div class="util-bar hidden" id="cloneBar">
+      <span class="util-label" id="cloneLabel">VOICE CLONE</span>
+      <div class="chips">
+        <button class="chip violet" id="recordCloneBtn">RECORD 5s</button>
+        <button class="chip" id="resetCloneBtn">RESET</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="providers" id="providers" aria-label="Voice Provider">
+    <button class="prov-btn" data-prov="local">LOCAL AI</button>
+    <button class="prov-btn" data-prov="eviltwin">EVIL TWIN</button>
+    <button class="prov-btn" data-prov="chatgpt">CHATGPT</button>
+    <button class="prov-btn" data-prov="grok">GROK</button>
+  </section>
+
+  <footer class="actions" id="actions">
+    <button class="act-btn btn-go" id="btnPrimary">DIAL</button>
+    <button class="act-btn btn-sub" id="btnSecondary">RING NOW</button>
+  </footer>
+</main>
+
+<script>
+const deck = document.getElementById("deck");
+const stateTitle = document.getElementById("stateTitle");
+const stateDetail = document.getElementById("stateDetail");
+const timerEl = document.getElementById("timer");
+const hookPill = document.getElementById("hookPill");
+const btnPrimary = document.getElementById("btnPrimary");
+const btnSecondary = document.getElementById("btnSecondary");
+const medallion = document.getElementById("medallion");
+const timerBar = document.getElementById("timerBar");
+const langBar = document.getElementById("langBar");
+const cloneBar = document.getElementById("cloneBar");
+const cloneLabel = document.getElementById("cloneLabel");
+const customDelayInput = document.getElementById("customDelay");
+
+let current = null;
+
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  const data = await res.json();
+  render(data);
+  return data;
+}
+
+function fmtTime(sec) {
+  const m = String(Math.floor(sec / 60)).padStart(2, "0");
+  const s = String(sec % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function render(st) {
+  current = st;
+  deck.dataset.state = st.state;
+  deck.dataset.provider = st.provider;
+
+  document.getElementById("modeCall").classList.toggle("active", st.mode === "call");
+  document.getElementById("modeReceive").classList.toggle("active", st.mode === "receive");
+
+  document.querySelectorAll(".prov-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.prov === st.provider);
+  });
+
+  // RCV custom timer bar
+  timerBar.classList.toggle("hidden", st.mode !== "receive");
+  const dStr = String(st.rcv_delay);
+  document.querySelectorAll(".chip[data-delay]").forEach((c) => {
+    c.classList.toggle("active", c.dataset.delay === dStr);
+  });
+  if (document.activeElement !== customDelayInput && st.rcv_delay !== "random") {
+    customDelayInput.value = st.rcv_delay;
+  }
+
+  // Local AI / Evil Twin language bar
+  const isLocal = st.provider === "local" || st.provider === "eviltwin";
+  langBar.classList.toggle("hidden", !isLocal);
+  const curLang = st.lang || "tr";
+  document.querySelectorAll(".chip[data-lang]").forEach((c) => {
+    c.classList.toggle("active", c.dataset.lang === curLang);
+  });
+
+  // Evil Twin voice clone bar
+  cloneBar.classList.toggle("hidden", st.provider !== "eviltwin");
+  if (st.recording_clone) {
+    cloneLabel.textContent = "RECORDING 5s...";
+  } else if (st.clone_ready) {
+    cloneLabel.textContent = `CLONE READY (${st.clone_seconds}s)`;
+  } else {
+    cloneLabel.textContent = "CLONE: AUTO ON SPEAK";
+  }
+
+  const titles = {
+    unplugged: "UNPLUGGED",
+    idle: st.mode === "receive" ? "RECEIVE READY" : "READY TO DIAL",
+    armed: st.rcv_delay === "random" ? "ARMED · RANDOM" : "ARMED · TIMER",
+    dialing: "DIALING...",
+    ringing: st.provider === "eviltwin" ? "EVIL TWIN CALLING" : "INCOMING CALL",
+    connecting: "PICKING UP...",
+    connected: st.provider === "eviltwin" ? "EVIL TWIN LIVE" : "CONNECTED",
+    auth_required: "SIGN IN ONCE",
+  };
+  stateTitle.textContent = titles[st.state] || st.state.toUpperCase();
+  stateDetail.textContent = st.detail || "";
+
+  if (st.state === "connected") {
+    timerEl.textContent = fmtTime(st.call_seconds || 0);
+  } else if (st.state === "armed" && st.armed_remaining !== null && st.armed_remaining !== undefined) {
+    timerEl.textContent = `RING IN ${fmtTime(st.armed_remaining)}`;
+  } else {
+    timerEl.textContent = "";
+  }
+
+  hookPill.textContent = st.on_hook
+    ? "CRADLE: ON SPACEBAR (LIFT TO PICK UP)"
+    : "CRADLE: HANDSET LIFTED";
+  hookPill.classList.toggle("on-hook", Boolean(st.on_hook));
+
+  const isBrowser = st.provider_info && st.provider_info.kind === "browser";
+
+  if (st.state === "ringing") {
+    btnPrimary.textContent = "ANSWER";
+    btnPrimary.className = "act-btn btn-go";
+    btnSecondary.textContent = "DECLINE";
+    btnSecondary.className = "act-btn btn-stop";
+  } else if (st.state === "dialing" || st.state === "connecting" || st.state === "connected") {
+    btnPrimary.textContent = "HANG UP";
+    btnPrimary.className = "act-btn btn-stop";
+    btnSecondary.textContent = isBrowser ? "VOICE TAB" : "LOCAL LIVE";
+    btnSecondary.className = "act-btn btn-sub";
+  } else if (st.state === "auth_required") {
+    btnPrimary.textContent = "OPEN LOGIN";
+    btnPrimary.className = "act-btn btn-amber";
+    btnSecondary.textContent = "HANG UP";
+    btnSecondary.className = "act-btn btn-stop";
+  } else if (st.state === "armed") {
+    btnPrimary.textContent = "RING NOW";
+    btnPrimary.className = "act-btn btn-amber";
+    btnSecondary.textContent = "DIAL OUT";
+    btnSecondary.className = "act-btn btn-sub";
+  } else {
+    btnPrimary.textContent = st.mode === "receive" ? "RING NOW" : "DIAL";
+    btnPrimary.className =
+      st.mode === "receive"
+        ? "act-btn btn-amber"
+        : st.provider === "eviltwin"
+        ? "act-btn btn-violet"
+        : "act-btn btn-go";
+    btnSecondary.textContent = isBrowser ? "VOICE TAB" : (st.mode === "receive" ? "RE-ARM TIMER" : "RING NOW");
+    btnSecondary.className = "act-btn btn-sub";
+  }
+}
+
+document.getElementById("modeCall").addEventListener("click", () => post("/api/mode", { mode: "call" }));
+document.getElementById("modeReceive").addEventListener("click", () => post("/api/mode", { mode: "receive" }));
+
+document.querySelectorAll(".prov-btn").forEach((b) => {
+  b.addEventListener("click", () => post("/api/provider", { provider: b.dataset.prov }));
+});
+
+document.querySelectorAll(".chip[data-delay]").forEach((c) => {
+  c.addEventListener("click", () => post("/api/delay", { delay: c.dataset.delay }));
+});
+
+document.querySelectorAll(".chip[data-lang]").forEach((c) => {
+  c.addEventListener("click", () => post("/api/lang", { lang: c.dataset.lang }));
+});
+
+function applyCustomDelay() {
+  const val = parseInt(customDelayInput.value, 10);
+  if (!Number.isNaN(val) && val >= 1) {
+    post("/api/delay", { delay: val });
+  }
+}
+document.getElementById("setDelayBtn").addEventListener("click", applyCustomDelay);
+customDelayInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") applyCustomDelay();
+});
+
+document.getElementById("recordCloneBtn").addEventListener("click", () =>
+  post("/api/action", { action: "record_clone" })
+);
+document.getElementById("resetCloneBtn").addEventListener("click", () =>
+  post("/api/action", { action: "reset_clone" })
+);
+
+function handlePrimary() {
+  if (!current) return;
+  const s = current.state;
+  if (s === "ringing") post("/api/action", { action: "answer" });
+  else if (s === "dialing" || s === "connecting" || s === "connected") post("/api/action", { action: "hangup" });
+  else if (s === "auth_required") post("/api/action", { action: "focus_voice" });
+  else if (s === "armed" || current.mode === "receive") post("/api/action", { action: "test_ring" });
+  else post("/api/action", { action: "dial" });
+}
+
+function handleSecondary() {
+  if (!current) return;
+  const s = current.state;
+  const isBrowser = current.provider_info && current.provider_info.kind === "browser";
+  if (s === "ringing") post("/api/action", { action: "decline" });
+  else if (s === "auth_required") post("/api/action", { action: "hangup" });
+  else if (s === "armed") post("/api/action", { action: "dial" });
+  else if (isBrowser) post("/api/action", { action: "focus_voice" });
+  else if (current.mode === "receive") post("/api/action", { action: "arm" });
+  else post("/api/action", { action: "test_ring" });
+}
+
+btnPrimary.addEventListener("click", handlePrimary);
+medallion.addEventListener("click", handlePrimary);
+btnSecondary.addEventListener("click", handleSecondary);
+
+async function pollState() {
+  try {
+    const r = await fetch("/api/state", { cache: "no-store" });
+    if (r.ok) render(await r.json());
+  } catch (_) {}
+}
+
+pollState();
+setInterval(pollState, 400);
+</script>
+</body>
+</html>

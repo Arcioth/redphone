@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Re-apply updated redphone/waybar/hypr/imex/sxs dotfiles after NixOS boot
+# activation (until `~/Documents/nixos/apply.sh` bakes them into /nix/store).
+set -euo pipefail
+
+SRC="$HOME/Documents/nixos/files"
+CFG="$HOME/.config"
+
+place() {
+  local src="$1" dst="$2" mode="$3"
+  [[ -f "$src" ]] || return 0
+  mkdir -p "$(dirname "$dst")"
+  if [[ -f "$dst" ]]; then
+    if ! cmp -s "$src" "$dst"; then
+      cat "$src" > "$dst"
+    fi
+  else
+    cp "$src" "$dst"
+  fi
+  chmod "$mode" "$dst"
+}
+
+place "$SRC/waybar/config"             "$CFG/waybar/config"             644
+place "$SRC/waybar/style.css"          "$CFG/waybar/style.css"          644
+place "$SRC/hypr/hyprland.lua"         "$CFG/hypr/hyprland.lua"         644
+place "$SRC/hypr/scripts/sxs-radio.sh" "$CFG/hypr/scripts/sxs-radio.sh" 755
+place "$SRC/imex/imex-status.py"       "$CFG/imex/imex-status.py"       755
+
+# If Hyprland is already running on login, reload so window rules apply immediately.
+if command -v hyprctl >/dev/null 2>&1; then
+  hyprctl reload >/dev/null 2>&1 || true
+fi

@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Red Phone Voice Bridge",
+  "version": "1.1.0",
+  "description": "Connects your USB-C Red Phone hardware handset to ChatGPT Voice and Grok Voice.",
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:47621/*",
+    "https://chatgpt.com/*",
+    "https://grok.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://grok.com/*"
+      ],
+      "js": ["page-hook.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://grok.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
