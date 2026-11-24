@@ -158,11 +158,23 @@ def env_wayland() -> dict[str, str]:
                 if not sock.endswith(".lock"):
                     env["WAYLAND_DISPLAY"] = os.path.basename(sock)
                     break
+    if not env.get("DISPLAY"):
+        x_socks = sorted(glob.glob("/tmp/.X11-unix/X*"))
+        if x_socks:
+            num = os.path.basename(x_socks[0]).lstrip("X")
+            env["DISPLAY"] = f":{num}"
+        else:
+            env["DISPLAY"] = ":0"
     if not env.get("HYPRLAND_INSTANCE_SIGNATURE"):
-        for sig in sorted(glob.glob(os.path.join(rt, "hypr", "*"))):
-            if os.path.exists(os.path.join(sig, ".socket.sock")):
-                env["HYPRLAND_INSTANCE_SIGNATURE"] = os.path.basename(sig)
-                break
+        # Pick the newest active Hyprland socket if multiple dirs exist
+        cands = [
+            sig
+            for sig in glob.glob(os.path.join(rt, "hypr", "*"))
+            if os.path.exists(os.path.join(sig, ".socket.sock"))
+        ]
+        if cands:
+            cands.sort(key=lambda p: os.path.getmtime(os.path.join(p, ".socket.sock")), reverse=True)
+            env["HYPRLAND_INSTANCE_SIGNATURE"] = os.path.basename(cands[0])
     return env
 
 
@@ -555,49 +567,50 @@ class RedPhoneController:
         return wins
 
     def open_popup(self) -> None:
-        env = env_wayland()
-        wins = self._dedupe_windows("redphone-popup", env)
-        if wins:
-            ws = self._active_workspace(env)
-            addr = wins[0].get("address")
-            if addr:
-                self._hypr_lua(
-                    f'hl.dsp.window.move({{ workspace = {ws}, window = "address:{addr}" }})',
-                    env,
+        with self.lock:
+            env = env_wayland()
+            wins = self._dedupe_windows("redphone-popup", env)
+            if wins:
+                ws = self._active_workspace(env)
+                addr = wins[0].get("address")
+                if addr:
+                    self._hypr_lua(
+                        f'hl.dsp.window.move({{ workspace = {ws}, window = "address:{addr}" }})',
+                        env,
+                    )
+                    self._hypr_lua(f'hl.dsp.window.center({{ window = "address:{addr}" }})', env)
+                    self._hypr_lua(f'hl.dsp.focus({{ window = "address:{addr}" }})', env)
+                return
+
+            now = time.monotonic()
+            if now - self._popup_spawn_at < 3.0:
+                return
+            self._popup_spawn_at = now
+
+            cmd = [
+                "chromium",
+                f"--user-data-dir={UI_PROFILE}",
+                "--class=redphone-popup",
+                "--name=redphone-popup",
+                f"--app=http://127.0.0.1:{PORT}/?view=popup",
+                "--window-size=560,600",
+                "--ozone-platform-hint=auto",
+                "--disable-session-crashed-bubble",
+                "--hide-crash-restore-bubble",
+                "--noerrdialogs",
+                "--no-first-run",
+                "--no-default-browser-check",
+            ]
+            try:
+                self.popup_proc = subprocess.Popen(
+                    cmd,
+                    env=env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
-                self._hypr_lua(f'hl.dsp.window.center({{ window = "address:{addr}" }})', env)
-                self._hypr_lua(f'hl.dsp.focus({{ window = "address:{addr}" }})', env)
-            return
-
-        now = time.monotonic()
-        if now - self._popup_spawn_at < 3.0:
-            return
-        self._popup_spawn_at = now
-
-        cmd = [
-            "chromium",
-            f"--user-data-dir={UI_PROFILE}",
-            "--class=redphone-popup",
-            "--name=redphone-popup",
-            f"--app=http://127.0.0.1:{PORT}/?view=popup",
-            "--window-size=560,600",
-            "--ozone-platform-hint=auto",
-            "--disable-session-crashed-bubble",
-            "--hide-crash-restore-bubble",
-            "--noerrdialogs",
-            "--no-first-run",
-            "--no-default-browser-check",
-        ]
-        try:
-            self.popup_proc = subprocess.Popen(
-                cmd,
-                env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            log("opened redphone-popup window")
-        except OSError as e:
-            log(f"popup spawn failed: {e}")
+                log(f"opened redphone-popup window (DISPLAY={env.get('DISPLAY')})")
+            except OSError as e:
+                log(f"popup spawn failed: {e}")
 
     def close_popup(self) -> None:
         env = env_wayland()
@@ -771,6 +784,8 @@ class RedPhoneController:
             self.on_hook = is_space_down(self.kbd_path)
             self._cancel_timers()
             self.sound.stop()
+            # Always pop up the single Red Phone applet on plug-in (CALL or RCV).
+            self.open_popup()
 
             if self.mode == "receive":
                 self._arm_random_call()
@@ -778,7 +793,6 @@ class RedPhoneController:
                 if self.on_hook:
                     self.state = "idle"
                     self.status_detail = "On cradle (Spacebar) — lift handset to dial"
-                    self.open_popup()
                     self.broadcast()
                 else:
                     self._start_outgoing_call()

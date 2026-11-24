@@ -8,6 +8,8 @@ ExecStart=%h/Documents/redphone/daemon.py
 Restart=always
 RestartSec=2
 KillMode=process
+Environment=DISPLAY=:0
+Environment=WAYLAND_DISPLAY=wayland-1
 
 [Install]
 WantedBy=default.target
