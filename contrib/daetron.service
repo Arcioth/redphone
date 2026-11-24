@@ -1,0 +1,18 @@
+[Unit]
+Description=daetron netlink USB plug dispatcher (redphone + sxs)
+After=default.target redphone-daemon.service
+
+[Service]
+Type=simple
+ExecStart=%h/Documents/daetron/daetron run -r %h/.config/daetron/rules.d
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=3
+KillMode=process
+Environment=PATH=%h/.local/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin:%h/.nix-profile/bin:/usr/bin:/bin
+Environment=HOME=%h
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=WAYLAND_DISPLAY=wayland-1
+
+[Install]
+WantedBy=default.target
