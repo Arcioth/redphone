@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cradle_accessibility_description">Lets a hardware keyboard Spacebar (USB, Bluetooth, tablet keyboard cover or Chromebook) act as the Red Phone cradle hook-switch, and the handset button answer or hang up, even while Red Phone is in the background. Red Phone only looks at the Spacebar and media keys. Every key is passed through unchanged, and it never reads screen content.</string>
+</resources>

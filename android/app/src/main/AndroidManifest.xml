@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Red Phone for Android. package / versionCode / versionName / <uses-sdk> come from
+  app/app.properties (merged by AGP, or injected by tools/build_apk.py).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.proximity" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Package visibility (Android 11+): speech recognizer + TTS engines. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+    <application
+        android:name="io.github.arcioth.redphone.RedPhoneApp"
+        android:allowBackup="false"
+        android:hardwareAccelerated="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="Red Phone"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:usesCleartextTraffic="true">
+
+        <!-- The Red Phone deck (the desktop 560x600 popup). Pops up on USB plug-in. -->
+        <activity
+            android:name="io.github.arcioth.redphone.MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- daetron equivalent: plugging in the AB13X handset launches the deck. -->
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter" />
+        </activity>
+
+        <!-- redphone-daemon equivalent: state machine, audio, cradle + handset inputs. -->
+        <service
+            android:name="io.github.arcioth.redphone.RedPhoneService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|mediaPlayback" />
+
+        <!-- Waybar chip equivalent: Quick Settings tile (tap = CALL/RCV). -->
+        <service
+            android:name="io.github.arcioth.redphone.TelTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tel"
+            android:label="TEL"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Optional: hardware-keyboard Spacebar cradle while Red Phone is in the background. -->
+        <service
+            android:name="io.github.arcioth.redphone.CradleAccessibilityService"
+            android:exported="true"
+            android:label="Red Phone Spacebar Cradle"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_cradle" />
+        </service>
+
+        <!-- redphone-ctl equivalent, adb only: the shell holds DUMP, regular apps cannot.
+             See android/bin/redphone-ctl-adb and android/README.md for usage. -->
+        <receiver
+            android:name="io.github.arcioth.redphone.CtlReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="io.github.arcioth.redphone.CTL" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Notification action buttons (answer / decline / hang up / mode / provider). -->
+        <receiver
+            android:name="io.github.arcioth.redphone.NotificationActionReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

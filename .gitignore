@@ -16,3 +16,13 @@ assets/*.mp3
 # Runtime logs / temporary files
 *.log
 *.tmp
+
+# Android port: build outputs, tool cache, signing keys
+android/.toolcache/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.p12
+*.jks
+*.keystore
