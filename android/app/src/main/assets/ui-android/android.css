@@ -1,0 +1,522 @@
+/*
+ * Red Phone for Android: deck additions on top of the unchanged desktop ui/index.html.
+ * Injected by MainActivity right after <head>, so index.html's own <style> follows this file:
+ * every override below therefore uses a selector at least one step more specific than the rule
+ * it overrides (usually "main.deck ...").
+ *
+ * Layout goals: fits portrait phones from 360x568 css px (360x640 dp with system bars) and
+ * landscape phones without scrolling the page; the stage (medallion + status) shrinks first
+ * (android.js sizes it through --rp-rig); touch targets are >= 40 px; same crimson look.
+ */
+
+html, body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ------------------------------------------------------------------ deck grid */
+
+main.deck {
+  --rp-rig: 148px;
+  --rp-gap: 8px;
+  padding: 10px 12px 12px;
+  gap: var(--rp-gap);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
+  grid-template-areas: "top" "stage" "util" "prov" "act" "cradle";
+  max-width: 640px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+main.deck > .topbar { grid-area: top; }
+main.deck > .stage { grid-area: stage; }
+main.deck > .util-stack { grid-area: util; }
+main.deck > .providers { grid-area: prov; }
+main.deck > .actions { grid-area: act; }
+main.deck > .rp-cradle { grid-area: cradle; }
+
+/* The scanline overlay must stay under the controls' hit areas (it already ignores pointers). */
+main.deck::before { z-index: 0; }
+
+/* ------------------------------------------------------------------ topbar */
+
+main.deck .topbar {
+  padding-bottom: 7px;
+  gap: 8px;
+}
+main.deck .topbar .mode-switch { margin-left: auto; }
+main.deck .mode-btn {
+  min-height: 40px;
+  min-width: 52px;
+  padding: 0 13px;
+  font-size: 11.5px;
+}
+
+.rp-gear {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.48);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.rp-gear svg {
+  width: 21px;
+  height: 21px;
+  fill: currentColor;
+  transition: transform 0.35s ease;
+}
+.rp-gear:hover { color: var(--ink); }
+.rp-gear.active {
+  color: #fff;
+  background: var(--crimson-soft);
+  border-color: var(--crimson);
+  box-shadow: 0 0 14px rgba(255, 42, 66, 0.35);
+}
+.rp-gear.active svg { transform: rotate(60deg); }
+.rp-gear .rp-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+  display: none;
+}
+.rp-gear.needs-attention .rp-badge { display: block; }
+
+/* ------------------------------------------------------------------ stage (shrinks first) */
+
+main.deck .stage {
+  gap: 8px;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+main.deck .ring-rig {
+  width: var(--rp-rig);
+  height: var(--rp-rig);
+  flex: 0 0 auto;
+}
+main.deck .wave { inset: calc(var(--rp-rig) * 0.081); }
+main.deck .medallion {
+  width: calc(var(--rp-rig) * 0.757);
+  height: calc(var(--rp-rig) * 0.757);
+  padding: 0;
+}
+main.deck .handset-svg {
+  width: calc(var(--rp-rig) * 0.378);
+  height: calc(var(--rp-rig) * 0.378);
+}
+main.deck .status-block { max-width: 100%; }
+main.deck .state-detail { max-width: min(470px, 100%); overflow-wrap: anywhere; }
+
+/* Short stage: medallion beside the status text (set by android.js). */
+main.deck.rp-stage-row .stage {
+  flex-direction: row;
+  justify-content: center;
+  gap: 12px;
+}
+main.deck.rp-stage-row .status-block {
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: flex-start;
+  text-align: left;
+}
+main.deck.rp-stage-row .state-title { font-size: 16px; letter-spacing: 0.11em; }
+main.deck.rp-stage-row .timer:empty { min-height: 0; }
+
+/* Very short stage: tighter type so the status still fits beside the medallion. */
+main.deck.rp-stage-tight .status-block { gap: 2px; }
+main.deck.rp-stage-tight .state-title { font-size: 14px; letter-spacing: 0.08em; }
+main.deck.rp-stage-tight .timer { font-size: 12.5px; min-height: 0; }
+main.deck.rp-stage-tight .state-detail { font-size: 10.5px; line-height: 1.25; }
+main.deck.rp-stage-tight .hook-pill { font-size: 9px; padding: 2px 7px; }
+
+/* ------------------------------------------------------------------ util bars, chips, inputs */
+
+main.deck .util-stack {
+  gap: 6px;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+main.deck .util-bar {
+  flex-wrap: wrap;
+  row-gap: 5px;
+  padding: 4px 6px 4px 9px;
+  min-height: 50px;
+}
+main.deck .util-bar .chips {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 4px;
+  margin-left: auto;
+}
+main.deck .chip {
+  min-height: 40px;
+  min-width: 40px;
+  padding: 0 9px;
+  font-size: 10.5px;
+  border-radius: 6px;
+}
+main.deck .delay-input {
+  height: 40px;
+  width: 58px;
+  font-size: 12px;
+}
+
+/* CALL TIME has 7 controls: on phones they get a full-width segmented row under the label
+   instead of wrapping SET onto a third line. */
+main.deck #timerBar .chips {
+  flex: 1 1 100%;
+  flex-wrap: nowrap;
+  gap: 3px;
+  margin-left: 0;
+}
+main.deck #timerBar .chip {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 2px;
+}
+main.deck #timerBar .delay-input {
+  flex: 1.4 1 0;
+  min-width: 0;
+  width: auto;
+}
+@media (min-width: 520px) {
+  main.deck #timerBar .chips { flex: 0 1 auto; gap: 4px; margin-left: auto; }
+  main.deck #timerBar .chip { flex: 0 0 auto; min-width: 40px; padding: 0 9px; }
+  main.deck #timerBar .delay-input { flex: 0 0 auto; width: 58px; }
+}
+
+main.deck .providers {
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+main.deck .prov-btn {
+  min-height: 44px;
+  padding: 6px 3px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+main.deck .actions {
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+}
+main.deck .act-btn {
+  min-height: 48px;
+  padding: 8px 8px;
+}
+
+main.deck button:focus { outline: none; }
+main.deck button:focus-visible,
+main.deck .rp-space:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ SPACEBAR · CRADLE pad */
+
+.rp-cradle {
+  position: relative;
+  z-index: 2;
+  padding-bottom: 5px; /* room for the key travel / depth */
+}
+.rp-space {
+  position: relative;
+  width: 100%;
+  min-height: 56px;
+  margin: 0;
+  padding: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, #26151b 0%, #1b0f14 60%, #140a0e 100%);
+  box-shadow:
+    0 5px 0 #060304,
+    0 8px 16px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -3px 7px rgba(0, 0, 0, 0.42);
+  color: var(--muted);
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(0);
+  transition: transform 0.07s ease, box-shadow 0.07s ease, border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+}
+/* The concave top of a laptop spacebar. */
+.rp-space::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 5px;
+  bottom: 9px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(255, 255, 255, 0.025));
+  pointer-events: none;
+}
+.rp-space-label,
+.rp-space-hint {
+  position: relative;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.rp-space-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: var(--ink);
+}
+.rp-space-led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.6);
+  transition: background 0.14s ease, box-shadow 0.14s ease;
+}
+.rp-space-hint {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rp-space.down {
+  transform: translateY(4px);
+  border-color: rgba(255, 190, 59, 0.6);
+  background:
+    linear-gradient(180deg, rgba(255, 190, 59, 0.08), rgba(255, 190, 59, 0) 50%),
+    linear-gradient(180deg, #2a1a12 0%, #1e120e 60%, #160c0a 100%);
+  box-shadow:
+    0 1px 0 #060304,
+    0 2px 6px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(255, 190, 59, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.4);
+}
+.rp-space.down .rp-space-label { color: #fff3cf; }
+.rp-space.down .rp-space-hint { color: var(--amber); }
+.rp-space.down .rp-space-led {
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+}
+.deck[data-state="ringing"] .rp-space:not(.down) .rp-space-led {
+  background: var(--crimson);
+  box-shadow: 0 0 8px var(--crimson);
+}
+
+/* ------------------------------------------------------------------ ANDROID SETTINGS panel */
+
+.rp-settings {
+  display: none;
+  grid-row: 2 / 4;
+  grid-column: 1 / -1;
+  z-index: 5;
+  min-height: 0;
+  /* Never let the panel's content size the deck rows: it scrolls inside the stage+util area. */
+  contain: size;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 42, 66, 0.14), transparent 70%),
+    #0d080a; /* opaque: the stage text must not ghost through */
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+}
+.rp-settings.open { display: flex; }
+/* While a text field has the soft keyboard up (adjustResize shrinks the deck), the panel takes
+   everything below the topbar so the field stays visible; it goes back on blur. */
+.rp-settings.open.typing { grid-row: 2 / -1; grid-column: 1 / -1; }
+.rp-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px 0 4px;
+  flex: 0 0 auto;
+}
+.rp-settings-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: var(--ink);
+}
+.rp-settings .util-bar { flex: 0 0 auto; }
+/* Inside the panel wrapped chip rows read better left-aligned under their label. */
+main.deck .rp-settings .util-bar .chips {
+  justify-content: flex-start;
+  margin-left: 0;
+}
+.rp-settings .util-label { min-width: 0; }
+main.deck .rp-settings .chips.rp-fill {
+  flex: 1 1 180px;
+  flex-wrap: nowrap;
+  margin-left: 0;
+}
+main.deck .rp-settings .rp-text {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  text-align: left;
+  font-size: 12px;
+  padding: 3px 8px;
+}
+main.deck .rp-settings .rp-text::placeholder { color: rgba(155, 122, 129, 0.7); }
+.rp-settings .chip.rp-ok {
+  background: rgba(38, 230, 153, 0.18);
+  border-color: var(--emerald);
+  color: #dafff0;
+}
+.rp-settings .chip.rp-err {
+  background: var(--crimson-soft);
+  border-color: var(--crimson);
+  color: #fff;
+}
+.rp-settings .chip[data-rp-perm]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: var(--crimson);
+  box-shadow: 0 0 6px var(--crimson);
+}
+.rp-settings .chip[data-rp-perm].active::before {
+  background: var(--amber);
+  box-shadow: 0 0 6px var(--amber);
+}
+.rp-settings .chip[data-rp-perm]:not(.active) {
+  border-color: rgba(255, 42, 66, 0.45);
+  color: var(--ink);
+}
+.rp-value {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.rp-value.muted { color: var(--muted); }
+.rp-value.good { color: var(--emerald); border-color: rgba(38, 230, 153, 0.4); }
+.rp-value.warn { color: var(--amber); border-color: rgba(255, 190, 59, 0.45); }
+.rp-note {
+  flex: 1 1 100%;
+  font-size: 9.5px;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ landscape phones */
+
+@media (orientation: landscape) and (max-height: 600px) {
+  /* Left: medallion + status, DIAL/RING NOW, the SPACEBAR · CRADLE pad.
+     Right: the util bars (scroll inside if RCV + EVIL TWIN shows all three) and the providers. */
+  main.deck {
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "top    top"
+      "stage  util"
+      "act    util"
+      "cradle prov";
+    column-gap: 12px;
+    padding: 8px 12px 10px;
+  }
+  main.deck .util-stack {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  /* Bottom-align the bars above the providers; unlike justify-content:flex-end this spacer
+     shrinks to 0 when the bars overflow, so the first bar stays reachable by scrolling. */
+  main.deck .util-stack::before {
+    content: "";
+    flex: 1 1 auto;
+    margin-bottom: -6px;
+  }
+  main.deck .util-bar { flex: 0 0 auto; }
+  main.deck .providers { align-self: center; }
+  main.deck .rp-cradle { align-self: end; }
+  main.deck .rp-space { min-height: 50px; }
+  .rp-settings { grid-row: 2 / 4; grid-column: 1 / -1; }
+}
+
+/* Extra-narrow screens (folded phones, split screen). */
+@media (max-width: 359px) {
+  main.deck { padding-left: 8px; padding-right: 8px; }
+  main.deck .brand { letter-spacing: 0.1em; }
+  main.deck .mode-btn { min-width: 46px; padding: 0 9px; }
+  main.deck .prov-btn { font-size: 9.5px; letter-spacing: 0.02em; }
+  .rp-space-label { letter-spacing: 0.14em; }
+}
+
+/* ------------------------------------------------------------------ reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  main.deck *,
+  main.deck *::before,
+  main.deck *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Keep a still cue for states that are normally shown only by motion. */
+  .deck[data-state="ringing"] .wave,
+  .deck[data-state="dialing"] .wave,
+  .deck[data-state="connecting"] .wave,
+  .deck[data-state="connected"] .wave { opacity: 0.5; }
+  .deck[data-state="ringing"] .wave:nth-child(2),
+  .deck[data-state="dialing"] .wave:nth-child(2) { transform: scale(1.18); opacity: 0.32; }
+  .deck[data-state="ringing"] .wave:nth-child(3),
+  .deck[data-state="dialing"] .wave:nth-child(3) { transform: scale(1.36); opacity: 0.18; }
+  .rp-gear.active svg { transform: none; }
+}
