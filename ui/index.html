@@ -495,6 +495,14 @@
         <button class="chip" id="resetCloneBtn">RESET</button>
       </div>
     </div>
+
+    <div class="util-bar hidden" id="browserBar">
+      <span class="util-label">BROWSER</span>
+      <div class="chips">
+        <button class="chip" id="showOrbBtn">SHOW ORB</button>
+        <button class="chip" id="hideBrowserBtn">HIDE WHOLE BROWSER</button>
+      </div>
+    </div>
   </section>
 
   <section class="providers" id="providers" aria-label="Voice Provider">
@@ -522,6 +530,9 @@ const medallion = document.getElementById("medallion");
 const timerBar = document.getElementById("timerBar");
 const langBar = document.getElementById("langBar");
 const cloneBar = document.getElementById("cloneBar");
+const browserBar = document.getElementById("browserBar");
+const showOrbBtn = document.getElementById("showOrbBtn");
+const hideBrowserBtn = document.getElementById("hideBrowserBtn");
 const cloneLabel = document.getElementById("cloneLabel");
 const customDelayInput = document.getElementById("customDelay");
 
@@ -576,6 +587,12 @@ function render(st) {
 
   // Evil Twin voice clone bar
   cloneBar.classList.toggle("hidden", st.provider !== "eviltwin");
+
+  // Browser visibility bar (ChatGPT / Grok)
+  const isBrowserProv = st.provider_info && st.provider_info.kind === "browser";
+  browserBar.classList.toggle("hidden", !isBrowserProv);
+  showOrbBtn.classList.toggle("active", !st.hide_voice);
+  hideBrowserBtn.classList.toggle("active", Boolean(st.hide_voice));
   if (st.recording_clone) {
     cloneLabel.textContent = "RECORDING 5s...";
   } else if (st.clone_ready) {
@@ -677,6 +694,8 @@ document.getElementById("recordCloneBtn").addEventListener("click", () =>
 document.getElementById("resetCloneBtn").addEventListener("click", () =>
   post("/api/action", { action: "reset_clone" })
 );
+showOrbBtn.addEventListener("click", () => post("/api/hide_voice", { hide: false }));
+hideBrowserBtn.addEventListener("click", () => post("/api/hide_voice", { hide: true }));
 
 function handlePrimary() {
   if (!current) return;

@@ -34,6 +34,9 @@ case "$CMD" in
   set-provider)   post "/api/provider" "{\"provider\":\"${ARG:-local}\"}" ;;
   set-delay)      post "/api/delay" "{\"delay\":\"${ARG:-random}\"}" ;;
   set-lang)       post "/api/lang" "{\"lang\":\"${ARG:-tr}\"}" ;;
+  hide-voice)     post "/api/hide_voice" '{"hide":true}' ;;
+  show-voice)     post "/api/hide_voice" '{"hide":false}' ;;
+  toggle-hide)    post "/api/hide_voice" '{"hide":"toggle"}' ;;
   dial)           post "/api/action" '{"action":"dial"}' ;;
   answer)         post "/api/action" '{"action":"answer"}' ;;
   hangup)         post "/api/action" '{"action":"hangup"}' ;;

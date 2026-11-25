@@ -38,6 +38,7 @@ MODE_FILE = os.path.join(STATE_DIR, "mode")
 PROVIDER_FILE = os.path.join(STATE_DIR, "provider")
 DELAY_FILE = os.path.join(STATE_DIR, "rcv_delay")
 LANG_FILE = os.path.join(STATE_DIR, "lang")
+HIDE_VOICE_FILE = os.path.join(STATE_DIR, "hide_voice")
 LOG_FILE = os.path.join(STATE_DIR, "daemon.log")
 
 PORT = 47621
@@ -369,6 +370,7 @@ class RedPhoneController:
         self.lang: str = load_str(LANG_FILE, "tr")
         if self.lang not in ("tr", "auto", "en"):
             self.lang = "tr"
+        self.hide_voice: bool = load_str(HIDE_VOICE_FILE, "0") == "1"
 
         self.plugged: bool = is_phone_plugged()
         self.state: str = "idle" if self.plugged else "unplugged"
@@ -445,6 +447,7 @@ class RedPhoneController:
                 "armed_pending": self.state == "armed",
                 "rcv_delay": self.rcv_delay,
                 "lang": self.lang,
+                "hide_voice": self.hide_voice,
                 "armed_remaining": armed_remaining,
                 "clone_ready": clone_secs >= 1.5,
                 "clone_seconds": clone_secs,
@@ -628,7 +631,14 @@ class RedPhoneController:
         )
 
     def _hide_voice_browser(self) -> None:
-        self.open_popup()
+        env = env_wayland()
+        for w in self._find_windows("redphone-voice", env):
+            addr = w.get("address")
+            if addr:
+                self._hypr_lua(
+                    f'hl.dsp.window.move({{ workspace = "special:redphone-voice", silent = true, window = "address:{addr}" }})',
+                    env,
+                )
 
     def _show_voice_browser(self) -> None:
         env = env_wayland()
@@ -746,7 +756,7 @@ class RedPhoneController:
                         if focus:
                             self._show_voice_browser()
                         else:
-                            self.open_popup()
+                            self._hide_voice_browser()
                         return
 
             threading.Thread(target=arrange_later, daemon=True).start()
@@ -788,6 +798,9 @@ class RedPhoneController:
             self.sound.stop()
             # Always pop up the single Red Phone applet on plug-in (CALL or RCV).
             self.open_popup()
+            # Pre-warm browser voice tab in the background so calls connect instantly.
+            if PROVIDERS[self.provider]["kind"] == "browser":
+                self.launch_voice_browser(focus=False)
 
             if self.mode == "receive":
                 self._arm_random_call()
@@ -941,7 +954,11 @@ class RedPhoneController:
         with self.lock:
             if self.want_active or self.session_id != ended_sid:
                 return
-            self.close_voice_browser()
+            # Keep browser voice tab warm & hidden in the background while plugged.
+            if self.plugged and PROVIDERS[self.provider]["kind"] == "browser":
+                self._hide_voice_browser()
+            else:
+                self.close_voice_browser()
             self._restore_audio()
 
     def set_mode(self, new_mode: str) -> None:
@@ -1006,6 +1023,23 @@ class RedPhoneController:
                     audio = self._route_to_phone()
                     self.status_detail = f"Connecting to {PROVIDERS[self.provider]['name']}..."
                     self._start_backend(audio)
+                elif self.plugged and PROVIDERS[self.provider]["kind"] == "browser":
+                    self.launch_voice_browser(focus=False)
+            self.broadcast()
+
+    def set_hide_voice(self, hide: object) -> None:
+        with self.lock:
+            if str(hide).lower() == "toggle":
+                new_val = not self.hide_voice
+            else:
+                new_val = str(hide).lower() in ("1", "true", "yes", "on")
+            self.hide_voice = new_val
+            save_str(HIDE_VOICE_FILE, "1" if self.hide_voice else "0")
+            log(f"HIDE_VOICE set -> {self.hide_voice}")
+            if self.hide_voice:
+                self._hide_voice_browser()
+            elif self.state == "connected" and PROVIDERS[self.provider]["kind"] == "browser":
+                self._show_voice_browser()
             self.broadcast()
 
     def reset_clone(self) -> None:
@@ -1128,8 +1162,10 @@ class RedPhoneController:
             audio = self._route_to_phone()
             if PROVIDERS[self.provider]["kind"] == "browser":
                 self._move_chromium_streams_to_phone(audio)
-                # Bring the Red-Phone-themed orb-only voice window cleanly forward once connected
-                self._show_voice_browser()
+                if self.hide_voice:
+                    self._hide_voice_browser()
+                else:
+                    self._show_voice_browser()
             if was_dialing:
                 self.sound.play_oneshot(os.path.join(ASSETS, "pickup.wav"), audio["phone_sink"])
             self.state = "connected"
@@ -1355,6 +1391,11 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/lang":
             CTRL.set_lang(str(data.get("lang") or "tr"))
+            self._send_json(CTRL.snapshot())
+            return
+
+        if path == "/api/hide_voice":
+            CTRL.set_hide_voice(data.get("hide", "toggle"))
             self._send_json(CTRL.snapshot())
             return
 
