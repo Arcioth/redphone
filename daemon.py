@@ -725,7 +725,7 @@ class RedPhoneController:
             "--class=redphone-voice",
             "--name=redphone-voice",
             f"--app={url}",
-            "--window-size=480,520",
+            "--window-size=340,340",
             "--ozone-platform-hint=auto",
             "--no-first-run",
             "--no-default-browser-check",

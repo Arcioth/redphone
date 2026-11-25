@@ -55,6 +55,12 @@
       visibility: hidden !important;
     }
 
+    html.redphone-voice-live.redphone-clean-ui body *::before,
+    html.redphone-voice-live.redphone-clean-ui body *::after {
+      display: none !important;
+      background: none !important;
+    }
+
     html.redphone-voice-live.redphone-clean-ui [data-redphone-keep="1"],
     html.redphone-voice-live.redphone-clean-ui [data-redphone-keep="1"] * {
       visibility: visible !important;
@@ -62,7 +68,13 @@
 
     html.redphone-voice-live.redphone-clean-ui [data-redphone-ancestor="1"] {
       visibility: visible !important;
+      position: static !important;
+      transform: none !important;
+      filter: none !important;
+      perspective: none !important;
+      contain: none !important;
       background: transparent !important;
+      background-image: none !important;
       background-color: transparent !important;
       border-color: transparent !important;
       box-shadow: none !important;
@@ -82,9 +94,11 @@
 
     html.redphone-voice-live.redphone-clean-ui [data-redphone-orb="1"] {
       position: fixed !important;
-      top: 50% !important;
-      left: 50% !important;
-      transform: translate(-50%, -50%) !important;
+      inset: 0 !important;
+      margin: auto !important;
+      transform: none !important;
+      max-width: 72vw !important;
+      max-height: 72vh !important;
       z-index: 2147483630 !important;
       filter: drop-shadow(0 0 36px rgba(255, 42, 66, 0.52)) !important;
     }
