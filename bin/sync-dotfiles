@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Re-apply updated redphone/waybar/hypr/imex/sxs dotfiles after NixOS boot
-# activation (until `~/Documents/nixos/apply.sh` bakes them into /nix/store).
+# Re-apply updated redphone/waybar/hypr/imex/sxs/bashrc/hyprpaper dotfiles after
+# NixOS boot activation (until `~/Documents/nixos/apply.sh` bakes them into /nix/store).
 set -euo pipefail
 
 SRC="$HOME/Documents/nixos/files"
@@ -13,20 +13,38 @@ place() {
   if [[ -f "$dst" ]]; then
     if ! cmp -s "$src" "$dst"; then
       cat "$src" > "$dst"
+      chmod "$mode" "$dst"
+      return 10
     fi
   else
     cp "$src" "$dst"
+    chmod "$mode" "$dst"
+    return 10
   fi
   chmod "$mode" "$dst"
+  return 0
 }
 
-place "$SRC/waybar/config"             "$CFG/waybar/config"             644
-place "$SRC/waybar/style.css"          "$CFG/waybar/style.css"          644
-place "$SRC/hypr/hyprland.lua"         "$CFG/hypr/hyprland.lua"         644
-place "$SRC/hypr/scripts/sxs-radio.sh" "$CFG/hypr/scripts/sxs-radio.sh" 755
-place "$SRC/imex/imex-status.py"       "$CFG/imex/imex-status.py"       755
+hypr_changed=0
+paper_changed=0
 
-# If Hyprland is already running on login, reload so window rules apply immediately.
+place "$SRC/waybar/config"             "$CFG/waybar/config"             644 || true
+place "$SRC/waybar/style.css"          "$CFG/waybar/style.css"          644 || true
+place "$SRC/hypr/hyprland.lua"         "$CFG/hypr/hyprland.lua"         644 || hypr_changed=1
+place "$SRC/hypr/hyprpaper.conf"       "$CFG/hypr/hyprpaper.conf"       644 || paper_changed=1
+place "$SRC/hypr/scripts/sxs-radio.sh" "$CFG/hypr/scripts/sxs-radio.sh" 755 || true
+place "$SRC/imex/imex-status.py"       "$CFG/imex/imex-status.py"       755 || true
+place "$SRC/home/bashrc"               "$HOME/.bashrc"                  644 || true
+place "$SRC/local-bin/wifi-login"      "$HOME/.local/bin/wifi-login"    755 || true
+
+# If Hyprland is already running on login, reload so window rules / wallpaper apply immediately.
 if command -v hyprctl >/dev/null 2>&1; then
-  hyprctl reload >/dev/null 2>&1 || true
+  if [[ "$hypr_changed" -eq 1 ]]; then
+    hyprctl reload >/dev/null 2>&1 || true
+  fi
+  if [[ "$paper_changed" -eq 1 ]] && pgrep -x hyprpaper >/dev/null 2>&1; then
+    pkill -x hyprpaper >/dev/null 2>&1 || true
+    sleep 0.3
+    hyprctl dispatch 'hl.dsp.exec_cmd("hyprpaper")' >/dev/null 2>&1 || true
+  fi
 fi
