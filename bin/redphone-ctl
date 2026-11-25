@@ -1,18 +1,37 @@
 #!/usr/bin/env bash
-# CLI wrapper for redphone daemon (used by daetron rules and Waybar clicks)
+# CLI wrapper for redphone daemon (on-demand via daetron: 0 footprint when unplugged)
 set -euo pipefail
 
 API="http://127.0.0.1:47621"
 CMD="${1:-status}"
 ARG="${2:-}"
 
+is_plugged() {
+  local f p
+  for f in /sys/bus/usb/devices/*/idVendor; do
+    [[ -f "$f" ]] || continue
+    [[ "$(tr -d '[:space:]' <"$f" | tr 'A-Z' 'a-z')" == "001f" ]] || continue
+    p="${f%idVendor}idProduct"
+    [[ -f "$p" ]] || continue
+    [[ "$(tr -d '[:space:]' <"$p" | tr 'A-Z' 'a-z')" == "0b21" ]] && return 0
+  done
+  return 1
+}
+
+daemon_up() {
+  curl -fsS --max-time 0.4 "$API/api/state" >/dev/null 2>&1
+}
+
 ensure_daemon() {
-  if curl -fsS --max-time 0.4 "$API/api/state" >/dev/null 2>&1; then
+  if daemon_up; then
     return 0
   fi
+  if ! is_plugged && [[ "$CMD" != "plug" ]]; then
+    return 1
+  fi
   systemctl --user start redphone-daemon.service >/dev/null 2>&1 || true
-  for _ in $(seq 1 20); do
-    curl -fsS --max-time 0.4 "$API/api/state" >/dev/null 2>&1 && return 0
+  for _ in $(seq 1 25); do
+    daemon_up && return 0
     sleep 0.1
   done
   return 1
@@ -25,8 +44,17 @@ post() {
 }
 
 case "$CMD" in
-  plug)           post "/api/action" '{"action":"plug"}' ;;
-  unplug)         post "/api/action" '{"action":"unplug"}' ;;
+  plug)
+    post "/api/action" '{"action":"plug"}'
+    ;;
+  unplug)
+    if daemon_up; then
+      curl -fsS --max-time 2 -X POST -H "Content-Type: application/json" -d '{"action":"unplug"}' "$API/api/action" >/dev/null || true
+      sleep 0.65
+    fi
+    systemctl --user stop redphone-daemon.service >/dev/null 2>&1 || true
+    pkill -SIGRTMIN+12 waybar 2>/dev/null || true
+    ;;
   toggle-mode)    post "/api/mode" '{"mode":"toggle"}' ;;
   mode-call)      post "/api/mode" '{"mode":"call"}' ;;
   mode-receive)   post "/api/mode" '{"mode":"receive"}' ;;
@@ -47,12 +75,15 @@ case "$CMD" in
   open-ui)        post "/api/action" '{"action":"open_ui"}' ;;
   focus-voice)    post "/api/action" '{"action":"focus_voice"}' ;;
   status)
-    ensure_daemon || exit 1
-    curl -fsS --max-time 1 "$API/api/state"
-    echo
+    if daemon_up; then
+      curl -fsS --max-time 1 "$API/api/state"
+      echo
+    else
+      echo '{"plugged":false,"state":"stopped","detail":"Daemon stopped (unplugged)"}'
+    fi
     ;;
   *)
-    echo "usage: redphone-ctl plug|unplug|toggle-mode|mode-call|mode-receive|cycle-provider|set-provider <id>|set-delay <random|sec>|dial|answer|hangup|test-ring|record-clone|reset-clone|open-ui|focus-voice|status" >&2
+    echo "usage: redphone-ctl plug|unplug|toggle-mode|mode-call|mode-receive|cycle-provider|set-provider <id>|set-delay <random|sec>|set-lang <tr|auto|en>|hide-voice|show-voice|toggle-hide|dial|answer|hangup|test-ring|record-clone|reset-clone|open-ui|focus-voice|status" >&2
     exit 2
     ;;
 esac

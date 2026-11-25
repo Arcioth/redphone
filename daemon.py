@@ -490,6 +490,7 @@ class RedPhoneController:
         if audio["phone_source"]:
             subprocess.run(["pactl", "set-default-source", audio["phone_source"]], check=False)
             subprocess.run(["pactl", "set-source-mute", audio["phone_source"], "0"], check=False)
+            subprocess.run(["pactl", "set-source-volume", audio["phone_source"], "100%"], check=False)
         poke_waybar(AUDIO_WAYBAR_SIG)
         return audio
 
@@ -503,21 +504,34 @@ class RedPhoneController:
         poke_waybar(AUDIO_WAYBAR_SIG)
 
     def _move_chromium_streams_to_phone(self, audio: dict[str, str | None]) -> None:
-        if not audio.get("phone_sink"):
-            return
-        raw = pactl_output("list", "sink-inputs")
-        cur_id = None
-        for line in raw.splitlines():
-            s = line.strip()
-            if s.startswith("Sink Input #"):
-                cur_id = s.split("#", 1)[1].strip()
-            elif cur_id and "application.name" in s and "chromium" in s.lower():
-                subprocess.run(
-                    ["pactl", "move-sink-input", cur_id, audio["phone_sink"]],
-                    check=False,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
+        if audio.get("phone_sink"):
+            raw = pactl_output("list", "sink-inputs")
+            cur_id = None
+            for line in raw.splitlines():
+                s = line.strip()
+                if s.startswith("Sink Input #"):
+                    cur_id = s.split("#", 1)[1].strip()
+                elif cur_id and "application.name" in s and "chromium" in s.lower():
+                    subprocess.run(
+                        ["pactl", "move-sink-input", cur_id, audio["phone_sink"]],
+                        check=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+        if audio.get("phone_source"):
+            raw = pactl_output("list", "source-outputs")
+            cur_id = None
+            for line in raw.splitlines():
+                s = line.strip()
+                if s.startswith("Source Output #"):
+                    cur_id = s.split("#", 1)[1].strip()
+                elif cur_id and "application.name" in s and "chromium" in s.lower():
+                    subprocess.run(
+                        ["pactl", "move-source-output", cur_id, audio["phone_source"]],
+                        check=False,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
 
     # ---------- Hyprland Window Helpers ----------
 
