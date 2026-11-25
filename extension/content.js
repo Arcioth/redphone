@@ -68,11 +68,11 @@
 
     html.redphone-voice-live.redphone-clean-ui [data-redphone-ancestor="1"] {
       visibility: visible !important;
-      position: static !important;
       transform: none !important;
       filter: none !important;
       perspective: none !important;
       contain: none !important;
+      will-change: auto !important;
       background: transparent !important;
       background-image: none !important;
       background-color: transparent !important;
@@ -94,13 +94,13 @@
 
     html.redphone-voice-live.redphone-clean-ui [data-redphone-orb="1"] {
       position: fixed !important;
-      inset: 0 !important;
-      margin: auto !important;
-      transform: none !important;
-      max-width: 72vw !important;
-      max-height: 72vh !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      width: 170px !important;
+      height: 170px !important;
       z-index: 2147483630 !important;
-      filter: drop-shadow(0 0 36px rgba(255, 42, 66, 0.52)) !important;
+      filter: drop-shadow(0 0 36px rgba(255, 42, 66, 0.55)) !important;
     }
 
     #redphone-bridge-badge,
@@ -172,7 +172,7 @@
     for (const c of document.querySelectorAll("canvas")) {
       const r = c.getBoundingClientRect();
       const area = r.width * r.height;
-      if (r.width >= 60 && r.height >= 60 && area > bestArea) {
+      if (r.width >= 32 && r.height >= 32 && area > bestArea) {
         best = c;
         bestArea = area;
       }
@@ -193,6 +193,8 @@
     return best;
   }
 
+  let lastOrbSeenAt = 0;
+
   function applyVoiceSkin(isLive, isAuth) {
     const html = document.documentElement;
     if (isAuth) {
@@ -205,6 +207,7 @@
     html.classList.toggle("redphone-clean-ui", cleanUiEnabled);
 
     if (!isLive) {
+      lastOrbSeenAt = 0;
       html.classList.remove("redphone-voice-live");
       clearOrbMarkers();
       return;
@@ -212,11 +215,14 @@
 
     const orb = findVoiceOrbElement();
     if (!orb) {
-      // Wait until the reactive voice bubble renders before hiding surrounding chrome
-      html.classList.remove("redphone-voice-live");
+      // Keep clean overlay active for 1.5s grace period so React canvas swaps don't flash white
+      if (Date.now() - lastOrbSeenAt > 1500) {
+        html.classList.remove("redphone-voice-live");
+      }
       return;
     }
 
+    lastOrbSeenAt = Date.now();
     if (orb.getAttribute("data-redphone-orb") !== "1") {
       clearOrbMarkers();
       orb.setAttribute("data-redphone-orb", "1");
