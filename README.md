@@ -19,6 +19,15 @@ Turn a retro USB-C telephone handset (`001f:0b21` Generic AB13X USB Audio) — w
   3. **`CHATGPT`** — browser-automated ChatGPT Voice via MV3 Chromium extension (`extension/`), skinned with the matching dark crimson Red Phone backdrop and stripping all UI chrome except the voice-reactive orb.
   4. **`GROK`** — browser-automated Grok Voice with the same orb-only Red Phone theme.
 
+## Android version
+
+`android/` is the same Red Phone for Android phones, tablets and Chromebooks. Plug the AB13X handset into
+USB-C and the deck pops up. It has the same Spacebar cradle hook-switch (hardware keyboard Spacebar,
+on-screen **SPACEBAR · CRADLE** pad, or proximity sensor), CALL / RCV modes with the same timers,
+handset button, and LOCAL AI / EVIL TWIN / CHATGPT / GROK backends. It reuses `ui/index.html` and
+`extension/*.js` unchanged. See [`android/README.md`](android/README.md); the prebuilt APK is
+`android/dist/redphone.apk`.
+
 ## Layout
 
 ```text
@@ -33,7 +42,8 @@ redphone/
 │   ├── redphone-waybar # Auto-hiding Waybar JSON status chip
 │   └── sync-dotfiles   # NixOS boot dotfile sync helper
 ├── assets/             # pickup.wav, hangup.wav (+ yt-dlp dialtone.wav / ringtone.wav)
-└── contrib/            # Example daetron rule & systemd user units
+├── contrib/            # Example daetron rule & systemd user units
+└── android/            # Android app (same deck + Spacebar cradle), Gradle project + SDK-free build_apk.py
 ```
 
 ## Quick Setup (Linux / PipeWire / Hyprland)

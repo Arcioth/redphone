@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# bin/redphone-ctl for the Android app, over adb (the receiver requires android.permission.DUMP,
+# which only the adb shell holds). Same commands as the desktop CLI, plus "sim-plug on|off".
+#
+#   ./android/bin/redphone-ctl-adb status
+#   ./android/bin/redphone-ctl-adb set-delay 15
+#   ./android/bin/redphone-ctl-adb set-provider eviltwin
+set -euo pipefail
+
+CMD="${1:-status}"
+ARG="${2:-}"
+PKG="io.github.arcioth.redphone"
+
+args=(shell am broadcast -n "$PKG/.CtlReceiver" -a "$PKG.CTL" --es cmd "$CMD")
+if [[ -n "$ARG" ]]; then
+  args+=(--es arg "$ARG")
+fi
+
+out="$(adb "${args[@]}")"
+# "Broadcast completed: result=0, data="{...}""
+data="$(sed -n 's/.*data="\(.*\)"$/\1/p' <<<"$out")"
+code="$(sed -n 's/.*result=\([0-9-]*\).*/\1/p' <<<"$out")"
+if [[ -n "$data" ]]; then
+  printf '%s\n' "$data"
+else
+  printf '%s\n' "$out"
+fi
+exit "${code:-1}"

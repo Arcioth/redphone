@@ -11,7 +11,7 @@ The regular Gradle project (android/app/build.gradle.kts) builds the very same
 sources with Android Studio; this script exists so the APK can also be produced
 in environments where dl.google.com (SDK + AGP downloads) is unavailable.
 
-usage: python3 android/tools/build_apk.py [--out android/dist/redphone.apk]
+usage: python3 android/tools/build_apk.py [--out android/dist/redphone.apk] [--api-check] [--keep-build]
 """
 from __future__ import annotations
 
@@ -310,8 +310,18 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.join(ANDROID_DIR, "dist", "redphone.apk"))
     ap.add_argument("--keep-build", action="store_true")
+    ap.add_argument(
+        "--api-check",
+        action="store_true",
+        help="NewApi-style check of every framework reference against API 26 (minSdk) and API 34",
+    )
     args = ap.parse_args()
 
+    if args.api_check:
+        TOOLS["android-all-26.jar"] = (
+            "org/robolectric/android-all/8.0.0_r4-robolectric-r1/android-all-8.0.0_r4-robolectric-r1.jar",
+            "3707dc100381e3bbcc57b85255fd313ae20875fc65cf3130c47e86f044ad77f0",
+        )
     jars = ensure_tools()
     props = read_props(os.path.join(APP_DIR, "app.properties"))
     build = tempfile.mkdtemp(prefix="redphone-apk-")
@@ -325,6 +335,17 @@ def main() -> None:
         manifest_bin = axml.compile_xml(manifest_txt, resolver)
 
         classes = compile_java(jars, build)
+        if args.api_check:
+            import api_check
+
+            newer, missing = api_check.check(classes, jars["android-all-26.jar"], jars["android-all-14.jar"])
+            log(f"api-check: {len(newer)} references newer than API 26 (each must sit behind an SDK_INT guard):")
+            for line in newer:
+                print("    " + line)
+            if missing:
+                for line in missing:
+                    print("    MISSING " + line)
+                raise SystemExit(f"api-check: {len(missing)} references do not exist in API 34")
         dex_path = dex(jars, classes, build)
 
         unsigned = os.path.join(build, "unsigned.apk")
