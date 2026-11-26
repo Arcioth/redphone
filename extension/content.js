@@ -459,6 +459,6 @@
     }
   }
 
-  setInterval(tick, 350);
-  setTimeout(tick, 250);
+  setInterval(tick, 140);
+  setTimeout(tick, 100);
 })();

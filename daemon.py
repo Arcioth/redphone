@@ -644,15 +644,55 @@ class RedPhoneController:
             stderr=subprocess.DEVNULL,
         )
 
+    def _close_special_voice_if_open(self, env: dict[str, str]) -> None:
+        try:
+            mons = json.loads(
+                subprocess.check_output(
+                    ["hyprctl", "monitors", "-j"],
+                    text=True,
+                    env=env,
+                    stderr=subprocess.DEVNULL,
+                    timeout=1.5,
+                )
+            )
+            for m in mons:
+                sw = (m.get("specialWorkspace") or {}).get("name", "")
+                if sw == "special:redphone-voice":
+                    self._hypr_lua('hl.dsp.workspace.toggle_special("redphone-voice")', env)
+                    break
+        except Exception:
+            pass
+
     def _hide_voice_browser(self) -> None:
         env = env_wayland()
         for w in self._find_windows("redphone-voice", env):
             addr = w.get("address")
             if addr:
                 self._hypr_lua(
-                    f'hl.dsp.window.move({{ workspace = "special:redphone-voice", silent = true, window = "address:{addr}" }})',
+                    f'hl.dsp.window.move({{ workspace = "special:redphone-voice", window = "address:{addr}" }})',
                     env,
                 )
+        self._close_special_voice_if_open(env)
+
+    def _stage_voice_behind_popup(self) -> None:
+        """Map redphone-voice on the active workspace BEHIND the opaque 560x600
+        redphone-popup so Chromium/WebGL/WebRTC connects at full speed without
+        unmapped special-workspace throttling or visual clutter."""
+        env = env_wayland()
+        wins = self._dedupe_windows("redphone-voice", env)
+        if not wins:
+            return
+        ws = self._active_workspace(env)
+        addr = wins[0].get("address")
+        if addr:
+            self._hypr_lua(
+                f'hl.dsp.window.move({{ workspace = {ws}, window = "address:{addr}" }})',
+                env,
+            )
+            self._hypr_lua(f'hl.dsp.window.center({{ window = "address:{addr}" }})', env)
+        self._close_special_voice_if_open(env)
+        # Immediately raise the larger opaque redphone-popup in front of it
+        self.open_popup()
 
     def _show_voice_browser(self) -> None:
         env = env_wayland()
@@ -668,6 +708,7 @@ class RedPhoneController:
             )
             self._hypr_lua(f'hl.dsp.window.center({{ window = "address:{addr}" }})', env)
             self._hypr_lua(f'hl.dsp.focus({{ window = "address:{addr}" }})', env)
+        self._close_special_voice_if_open(env)
 
     # ---------- Voice Backends (Local Worker vs Browser) ----------
 
@@ -769,6 +810,8 @@ class RedPhoneController:
                     if self._find_windows("redphone-voice", env):
                         if focus:
                             self._show_voice_browser()
+                        elif self.want_active:
+                            self._stage_voice_behind_popup()
                         else:
                             self._hide_voice_browser()
                         return
@@ -799,6 +842,9 @@ class RedPhoneController:
         else:
             self.stop_local_worker()
             self.launch_voice_browser(focus=False)
+            # Bring the pre-warmed browser onto the active workspace BEHIND the
+            # opaque 560x600 redphone-popup so WebRTC/React runs unthrottled!
+            self._stage_voice_behind_popup()
 
     # ---------- High-level State Transitions ----------
 
@@ -964,11 +1010,11 @@ class RedPhoneController:
         threading.Thread(target=self._stop_voice_after_hangup, args=(ended_sid,), daemon=True).start()
 
     def _stop_voice_after_hangup(self, ended_sid: str) -> None:
-        time.sleep(0.55)
+        time.sleep(0.30)
         with self.lock:
             if self.want_active or self.session_id != ended_sid:
                 return
-            # Keep browser voice tab warm & hidden in the background while plugged.
+            # Keep browser voice tab warm & hidden in special:redphone-voice (with overlay closed)
             if self.plugged and PROVIDERS[self.provider]["kind"] == "browser":
                 self._hide_voice_browser()
             else:
@@ -1138,7 +1184,8 @@ class RedPhoneController:
         with self.lock:
             if prov != self.provider or not self.want_active:
                 return
-            log(f"EXT[{prov}]: {status} ({detail})")
+            if not (status == "connected" and self.state == "connected" and detail == self.status_detail):
+                log(f"EXT[{prov}]: {status} ({detail})")
             if status == "auth_required":
                 if self.state != "auth_required":
                     self.sound.stop()
@@ -1177,7 +1224,8 @@ class RedPhoneController:
             if PROVIDERS[self.provider]["kind"] == "browser":
                 self._move_chromium_streams_to_phone(audio)
                 if self.hide_voice:
-                    self._hide_voice_browser()
+                    # Keep mapped behind opaque redphone-popup during active call so WebRTC stays unthrottled
+                    self._stage_voice_behind_popup()
                 else:
                     self._show_voice_browser()
             if was_dialing:
